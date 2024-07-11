@@ -5,123 +5,59 @@ package comment;
 option go_package = "/";
 
 service CommentService {
-    rpc GetAllUsers(GetAllCommentsRequest) returns (GetAllCommentsResponse);
-    rpc GetPostById(GetPostByIdRequest) returns (GetPostByIdResponse);
-    rpc GetUserById(GetUserByIdRequest) returns (GetUserByIdResponse);
-
-    rpc CreateComment(Comment) returns (Comment);
-    rpc UpdateComment(Comment) returns (Comment);
-    rpc DeleteComment(IdRequst) returns (DeleteResponse);
-    rpc GetComment(IdRequst) returns (Comment);
-    rpc GetAllComment(GetAllCommentsRequest) returns (GetAllCommentResponse);
-
-    rpc GetCommentsByPostId(IdRequst) returns (GetAllCommentResponse);
-    rpc GetCommentsByOwnerId(IdRequst) returns (GetAllCommentResponse);
-    rpc GetCommentById(IdRequst) returns (Comment);
-}
-
-message DeleteResponse {}
-
-message GetAllCommentResponse {
-    repeated Comment all_comments = 1;
-}
-
-message IdRequst {
-    string id = 1;
-}
-
-message GetAllCommentsRequest {
-    int64 page = 1;
-    int64 limit = 2;
-}
-
-message GetAllCommentsResponse {
-    repeated Users all_users = 1;
-}
-
-message GetPostByIdRequest {
-    string post_id = 1;
-}
-
-message GetPostByIdResponse {
-    Post post = 1;
-    User post_writer = 2;
-    repeated Comment comments = 3;
-}
-
-message GetUserByIdRequest {
-    string owner_id = 1;
-}
-
-message GetUserByIdResponse {
-    User owner_info = 1;
-    repeated Posts all_posts = 2;
-}
-
-message Posts {
-    string id = 1;
-    string user_id = 2;
-    string content = 3;
-    string title = 4;
-    int64 views = 5;
-    string category = 6;
-    string created_at = 7;
-    string updated_at = 8;
-    repeated Comments all_comments = 11;
-}
-
-message Comments {
-    string id = 1;
-    string content = 2;
-    string post_id = 3;
-    string owner_id = 4;
-    string created_at = 5;
-    string updated_at = 6;
-    User comment_writer = 7;
-}
-
-message User {
-    string id = 1;
-    string name = 2;
-    string last_name = 3;
-    string username = 4;
-    string email = 5;
-    string password = 6;
-    string refresh_token = 7;
-    string created_at = 8;
-    string updated_at = 9;
-}
-
-message Users {
-    string id = 1;
-    string name = 2;
-    string last_name = 3;
-    string username = 4;
-    string email = 5;
-    string password = 6;
-    string refresh_token = 7;
-    string created_at = 8;
-    string updated_at = 9;
-    repeated Posts all_posts = 10;
+    rpc Create(CreateComment) returns (Comment);
+    rpc Update(UpdateComment) returns (Comment);
+    rpc Delete(DeleteCommentReq) returns (DeleteCommentRes);
+    rpc Get(GetCommentReq) returns (Comment);
+    rpc GetAll(GetAllCommentsReq) returns (GetAllCommentRes);
 }
 
 message Comment {
     string id = 1;
-    string content = 2;
+    string user_id = 2;
     string post_id = 3;
-    string owner_id = 4;
-    string created_at = 5;
-    string updated_at = 6;
+    string content = 4;
+    string views_count = 5;
+    string created_at = 6;
+    string updated_at = 7;
+    string deleted_at = 8;
 }
 
-message Post {
-    string id = 1;
-    string user_id = 2;
+message CreateComment {
+    string user_id = 1;
+    string post_id = 2;
     string content = 3;
-    string title = 4;
-    int64 views = 5;
-    string category = 6;
-    string created_at = 7;
-    string updated_at = 8;
-    repeated Comment all_comments = 11;
+}
+
+message UpdateComment {
+    string id = 1;
+    string content = 2;
+}
+
+message DeleteCommentReq {
+    string id = 1;
+}
+
+message DeleteCommentRes {
+    string message = 1;
+}
+
+message GetCommentReq {
+    string field = 1;
+    string value = 2;
+}
+
+message GetAllCommentsReq {
+    int64 page = 1;
+    int64 limit = 2;
+    string field = 3;
+    string value = 4;
+    string sortby = 5;
+    string started_at = 6;
+    string ended_at = 7;
+}
+
+message GetAllCommentRes{
+    repeated Comment comments = 1;
+    int64 count = 2;
 }

@@ -51,7 +51,12 @@ func New(option Option) *gin.Engine {
 
 	api := router.Group("/v1")
 
-	// users
+	// user registratsiya
+	api.POST("/register", handlerV1.Register)
+	api.POST("/login", handlerV1.LogIn)
+	api.POST("/verification", handlerV1.Verification)
+
+	// // users
 	api.POST("/users", handlerV1.CreateUser)
 	api.GET("/users", handlerV1.ListUsers)
 	api.GET("/users/:id", handlerV1.GetUser)
@@ -59,30 +64,25 @@ func New(option Option) *gin.Engine {
 	api.DELETE("/users/:id", handlerV1.DeleteUser)
 	api.GET("/all/user/data/:id", handlerV1.GetAllUserData)
 
-	// posts
-	api.POST("/posts", handlerV1.CreatePost)
-	api.GET("/posts/:id", handlerV1.GetPost)
-	api.GET("/posts", handlerV1.ListPost)
-	api.PUT("/posts/:id", handlerV1.UpdatePost)
-	api.DELETE("/posts/:id", handlerV1.DeletePost)
-	api.GET("/all/post/data", handlerV1.GetAllPostData)
+	// // posts
+	// api.POST("/posts", handlerV1.CreatePost)
+	// api.GET("/posts/:id", handlerV1.GetPost)
+	// api.GET("/posts", handlerV1.ListPost)
+	// api.PUT("/posts/:id", handlerV1.UpdatePost)
+	// api.DELETE("/posts/:id", handlerV1.DeletePost)
+	// api.GET("/all/post/data", handlerV1.GetAllPostData)
 
-	// comments
-	api.POST("/comments", handlerV1.CreateComment)
-	api.GET("/comments/:id", handlerV1.GetComment)
-	api.GET("/comments", handlerV1.ListComment)
-	api.PUT("/comments/:id", handlerV1.UpdateComment)
-	api.DELETE("/comments/:id", handlerV1.DeleteComment)
-	api.GET("/all", handlerV1.GetAllData)
-	api.GET("/post", handlerV1.GetPostById)
-	api.GET("/comment", handlerV1.GetCommentByOwner)
-	api.GET("/commentpost", handlerV1.GetCommentsByPostId)
-	api.GET("/user", handlerV1.GetUserById)
-
-	// user registratsiya
-	api.POST("/register", handlerV1.Register)
-	api.GET("/login", handlerV1.LogIn)
-	api.GET("/verification", handlerV1.Verification)
+	// // comments
+	// api.POST("/comments", handlerV1.CreateComment)
+	// api.GET("/comments/:id", handlerV1.GetComment)
+	// api.GET("/comments", handlerV1.ListComment)
+	// api.PUT("/comments/:id", handlerV1.UpdateComment)
+	// api.DELETE("/comments/:id", handlerV1.DeleteComment)
+	// api.GET("/all", handlerV1.GetAllData)
+	// api.GET("/post", handlerV1.GetPostById)
+	// api.GET("/comment", handlerV1.GetCommentByOwner)
+	// api.GET("/commentpost", handlerV1.GetCommentsByPostId)
+	// api.GET("/user", handlerV1.GetUserById)
 
 	url := ginSwagger.URL("swaggerdoc.json")
 	api.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))

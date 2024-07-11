@@ -2,185 +2,131 @@ package v1
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"net/http"
-	"net/smtp"
 
-	"strings"
 	"time"
 
 	"api-gateway/api/handlers/models"
 	token "api-gateway/api/handlers/tokens"
-	"api-gateway/pkg/etc"
 	l "api-gateway/pkg/logger"
 	pbu "api-gateway/protos/user-service"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
-	"google.golang.org/protobuf/encoding/protojson"
 )
-
-// jwt
 
 // Register ...
 // @Summary Register
-// @Description Api for registration
-// @Tags register
+// @Description API for user registration
+// @Tags Authorizations
 // @Accept json
 // @Produce json
-// @Param User body models.User true "createUserModel"
+// @Param name query string true "First name"
+// @Param lastName query string false "Last name"
+// @Param email query string true "Email"
+// @Param password query string true "Password"
+// @Param userName query string true "Username"
+// @Param phoneNumber query string false "Phone number"
+// @Param birthDate query string false "Birth date (YYYY-MM-DD)"
+// @Param biography query string false "Biography"
+// @Param gender query string false "Gender"
+// @Param profilePicture query string false "Profile picture URL"
 // @Success 200 {object} models.User
 // @Failure 400 {object} models.StandardErrorModel
 // @Failure 500 {object} models.StandardErrorModel
 // @Router /v1/register/ [post]
 func (h *handlerV1) Register(c *gin.Context) {
-	var (
-		body        models.RegisterUser
-		jsonMarshal protojson.MarshalOptions
-	)
+	var body models.RegisterUser
 
-	jsonMarshal.UseProtoNames = true
-	err := c.ShouldBindJSON(&body)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
-		h.log.Error("failed to bind json", l.Error(err))
-		return
-	}
-
-	body.Email = strings.TrimSpace(body.Email)
-	body.Email = strings.ToLower(body.Email)
+	// Bind query parameters
+	body.Name = c.Query("name")
+	body.LastName = c.Query("lastName")
+	body.Email = c.Query("email")
+	body.Password = c.Query("password")
+	body.UserName = c.Query("userName")
+	body.PhoneNumber = c.Query("phoneNumber")
+	body.BirthDate = c.Query("birthDate")
+	body.Biography = c.Query("biography")
+	body.Gender = c.Query("gender")
+	body.ProfilePicture = c.Query("profilePicture")
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(h.cfg.CtxTimeout))
 	defer cancel()
 
-	if err = body.Validate(); err != nil {
+	if err := body.Validate(); err != nil {
 		c.JSON(http.StatusConflict, gin.H{
-			"error": "This password is already in use or email error, please choose another",
+			"error": "This password is already in use or there is an email error. Please choose another.",
 		})
-		h.log.Error("failed to check email uniques", l.Error(err))
+		h.log.Error("failed to check email uniqueness", l.Error(err))
 		return
 	}
 
-	exists, err := h.serviceManager.UserService().CheckUniques(ctx, &pbu.CheckUniquesRequest{
-		Field: "email",
-		Value: body.Email,
+	res, err := h.serviceManager.UserService().Register(ctx, &pbu.CreateUserReq{
+		FirstName:      body.Name,
+		LastName:       body.LastName,
+		Email:          body.Email,
+		Password:       body.Password,
+		UserName:       body.UserName,
+		PhoneNumber:    body.PhoneNumber,
+		BirthDate:      body.BirthDate,
+		Biography:      body.Biography,
+		Gender:         body.Gender,
+		ProfilePicture: body.ProfilePicture,
 	})
-
-	if err != nil && exists.Check {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
-		h.log.Error("failed to check email uniques", l.Error(err))
-		return
-	}
-
-	if exists.Check {
-		c.JSON(http.StatusConflict, gin.H{
-			"error": "This email is already in use, please choose another",
-		})
-		h.log.Error("failed to check email uniques", l.Error(err))
-		return
-	}
-
-	exists, err = h.serviceManager.UserService().CheckUniques(ctx, &pbu.CheckUniquesRequest{
-		Field: "username",
-		Value: body.UserName,
-	})
-
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
 		})
-		h.log.Error("failed to check username uniques", l.Error(err))
-	}
-
-	if exists.Check {
-		c.JSON(http.StatusConflict, gin.H{
-			"error": "This username is already in use, please choose another",
-		})
-		h.log.Error("failed to check username uniques", l.Error(err))
+		h.log.Error("failed to register user", l.Error(err))
 		return
-
 	}
 
-	byteData, err := json.Marshal(body)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "Not marshaled code",
-		})
-	}
-
-	client := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "",
-		DB:       0,
-	})
-
-	code := etc.GenerateCode(6)
-
-	err = client.Set(context.Background(), code, byteData, time.Hour*2).Err()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	auth := smtp.PlainAuth("", "asadfaxriddinov611@gmail.com", "drkeagdlwrfanrdp", "smtp.gmail.com")
-	err = smtp.SendMail("smtp.gmail.com:587", auth, "asadfaxriddinov611@gmail.com", []string{body.Email}, []byte(code))
-	if err != nil {
-		log.Fatal(err)
-		panic(err)
-	}
-
-	c.JSON(http.StatusOK, true)
+	c.JSON(http.StatusOK, gin.H{"message": "User registered successfully", "email": res.User.Email})
 }
 
 // LogIn
 // @Summary LogIn User
 // @Description LogIn - Api for login users
-// @Tags register
+// @Tags Authorizations
 // @Accept json
 // @Produce json
-// @Param email query string true "Email"
+// @Param email query string false "Email"
+// @Param username query string false "Username"
 // @Param password query string true "Password"
 // @Success 200 {object} models.User
 // @Failure 400 {object} models.StandardErrorModel
 // @Failure 500 {object} models.StandardErrorModel
-// @Router /v1/login [get]
+// @Router /v1/login [post]
 func (h *handlerV1) LogIn(c *gin.Context) {
 	email := c.Query("email")
+	username := c.Query("username")
 	password := c.Query("password")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(h.cfg.CtxTimeout))
 	defer cancel()
 
-	response, err := h.serviceManager.UserService().GetUserByEmail(ctx, &pbu.ByEmail{Email: email})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+	// Validate if either email or username is provided
+	if email == "" && username == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "either email or username must be provided",
 		})
-		h.log.Error("failed to get user by email", l.Error(err))
 		return
 	}
 
-	if response.Email != email {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Email is not found",
+	response, err := h.serviceManager.UserService().Login(ctx, &pbu.LoginUserReq{
+		Email:    email,
+		UserName: username,
+		Password: password,
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to log in user",
 		})
-		h.log.Error("email is not found")
-		return
-	}
-	if !etc.CheckPasswordHash(password, response.Password) {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Password is not correct",
-		})
-		h.log.Error("password is not correct")
 		return
 	}
 
 	h.jwthandler = token.JWTHandler{
-		Sub:       response.Id,
+		Sub:       response.User.Id,
 		Iss:       time.Now().String(),
 		Exp:       time.Now().Add(time.Hour * 6).String(),
 		Role:      "user",
@@ -193,27 +139,14 @@ func (h *handlerV1) LogIn(c *gin.Context) {
 		log.Fatal("error while generating auth token")
 	}
 
-	_, err = h.serviceManager.UserService().Update(ctx, &pbu.User{
-		Id:       response.Id,
-		Name:     response.Name,
-		LastName: response.LastName,
-		Username: response.Username,
-		Email:    response.Email,
-		Password: response.Password,
-	})
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
-
 	var respModel models.UserBYtokens
-	respModel.Id = response.Id
-	respModel.Name = response.Name
-	respModel.LastName = response.LastName
-	respModel.UserName = response.Username
-	respModel.Email = response.Email
+	respModel.Id = response.User.Id
+	respModel.Name = response.User.FirstName
+	respModel.LastName = response.User.LastName
+	respModel.UserName = response.User.UserName
+	respModel.Email = response.User.Email
 	respModel.RefreshToken = refresh_token
-	respModel.Password = response.Password
+	respModel.Password = response.User.Password
 	respModel.AccessToken = access
 
 	c.JSON(http.StatusOK, respModel)
@@ -222,7 +155,7 @@ func (h *handlerV1) LogIn(c *gin.Context) {
 // Verification
 // @Summary Verification User
 // @Description LogIn - Api for verification users
-// @Tags register
+// @Tags Authorizations
 // @Accept json
 // @Produce json
 // @Param email query string true "Email"
@@ -230,11 +163,8 @@ func (h *handlerV1) LogIn(c *gin.Context) {
 // @Success 200 {object} models.UserResponse
 // @Failure 400 {object} models.StandardErrorModel
 // @Failure 500 {object} models.StandardErrorModel
-// @Router /v1/verification [get]
+// @Router /v1/verification [post]
 func (h *handlerV1) Verification(c *gin.Context) {
-
-	var jspbMarshal protojson.MarshalOptions
-	jspbMarshal.UseProtoNames = true
 
 	email := c.Query("email")
 	code := c.Query("code")
@@ -242,52 +172,20 @@ func (h *handlerV1) Verification(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(h.cfg.CtxTimeout))
 	defer cancel()
 
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     "redisdb:6379",
-		Password: "",
-		DB:       0,
+	createdUser, err := h.serviceManager.UserService().Authorization(ctx, &pbu.AuthUser{
+		Email: email,
+		Code:  code,
 	})
-	defer rdb.Close()
-
-	val, err := rdb.Get(ctx, code).Result()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Verification code is expired",
-		})
-		h.log.Error("Verification code is expired", l.Error(err))
-		return
-	}
-
-	var userdetail models.User
-	if err := json.Unmarshal([]byte(val), &userdetail); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Unmarshiling error",
-		})
-		h.log.Error("error unmarshalling userdetail", l.Error(err))
-		return
-	}
-
-	if email != userdetail.Email {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Incorrect email. Try again",
-		})
-		return
-	}
-
-	id := uuid.New().String()
-
-	hashPassword, err := etc.HashPassword(userdetail.Password)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Error message",
+			"error": "failed to verify user",
 		})
-		h.log.Error("Error hashing possword", l.Error(err))
 		return
 	}
 
 	// Create access and refresh tokens JWT
 	h.jwthandler = token.JWTHandler{
-		Sub:       id,
+		Sub:       createdUser.User.Id,
 		Iss:       time.Now().String(),
 		Exp:       time.Now().Add(time.Hour * 6).String(),
 		Role:      "user",
@@ -302,30 +200,12 @@ func (h *handlerV1) Verification(c *gin.Context) {
 		return
 	}
 
-	createdUser, err := h.serviceManager.UserService().Create(ctx, &pbu.User{
-		Id:       id,
-		Name:     userdetail.Name,
-		LastName: userdetail.LastName,
-		Email:    userdetail.Email,
-		Password: hashPassword,
-		Username: userdetail.UserName,
-	})
-
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Error creating user",
-		})
-		h.log.Error("failed to create user", l.Error(err))
-		return
-	}
-
 	response := &models.UserBYtokens{
-		Id:           id,
-		Name:         createdUser.Name,
-		LastName:     createdUser.LastName,
-		UserName:     createdUser.Username,
-		Email:        createdUser.Email,
-		Password:     hashPassword,
+		Id:           createdUser.User.Id,
+		Name:         createdUser.User.FirstName,
+		LastName:     createdUser.User.LastName,
+		UserName:     createdUser.User.UserName,
+		Email:        createdUser.User.Email,
 		AccessToken:  access,
 		RefreshToken: refresh,
 	}

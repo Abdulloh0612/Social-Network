@@ -2,24 +2,29 @@ package utils
 
 import (
 	"strconv"
-	"strings"
 )
 
 type QueryParams struct {
-	Filters  map[string]string
-	Page     int64
-	Limit    int64
-	Ordering []string
-	Search   string
+	Filters   map[string]string
+	Page      int64
+	Limit     int64
+	Field     string
+	Value     string
+	SortBy    string
+	StartedAt string
+	EndedAt   string
 }
 
 func ParseQueryParams(queryParams map[string][]string) (*QueryParams, []string) {
 	params := QueryParams{
-		Filters:  make(map[string]string),
-		Page:     1,
-		Limit:    10,
-		Ordering: []string{},
-		Search:   "",
+		Filters:   make(map[string]string),
+		Page:      1,
+		Limit:     10,
+		Field:     "",
+		Value:     "",
+		SortBy:    "",
+		StartedAt: "",
+		EndedAt:   "",
 	}
 	var errStr []string
 	var err error
@@ -40,16 +45,27 @@ func ParseQueryParams(queryParams map[string][]string) (*QueryParams, []string) 
 			}
 			continue
 		}
-
-		if key == "search" {
-			params.Search = value[0]
+		if key == "field" {
+			params.Field = value[0]
+			continue
+		}
+		if key == "value" {
+			params.Value = value[0]
+			continue
+		}
+		if key == "sort_by" {
+			params.SortBy = value[0]
+			continue
+		}
+		if key == "started_at" {
+			params.StartedAt = value[0]
+			continue
+		}
+		if key == "ended_at" {
+			params.EndedAt = value[0]
 			continue
 		}
 
-		if key == "ordering" {
-			params.Ordering = strings.Split(value[0], ",")
-			continue
-		}
 		params.Filters[key] = value[0]
 	}
 
